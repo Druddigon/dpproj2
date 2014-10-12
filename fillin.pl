@@ -69,9 +69,33 @@ valid_puzzle([Row|Rows]) :-
 % implementation.
 
 %%  doesn't work
-solve_puzzle(Puzzle0, [X|Xs], Puzzle) :-
+solve_puzzle(Puzzle0, WordList, Puzzle) :-
     puzzle_with_vars(Puzzle0, Puzzle0WithVars),
-    slots_from_puzzle(Puzzle0WithVars, Slots).
+    slots_from_puzzle(Puzzle0WithVars, Slots),
+    fillin_all_words(Slots, WordList),
+    Puzzle = Puzzle0WithVars.
+
+%% verify_solved(Slots, WordList)
+%% should hold when every slot corresponds to a word in the WordList.
+verify_solved([], []).
+verify_solved(Slots, WordList) :-
+    msort(Slots, SortedSlots),
+    msort(WordList, SortedWordList),
+    SortedSlots = SortedWordList.
+
+fillin_all_words(Slots, []).
+fillin_all_words(Slots, [X|Xs]) :-
+    fillin_word(Slots, X, SlotsWithWord),
+    fillin_all_words(SlotsWithWord, Xs).
+
+%% Greedily place the word in the first possible slot
+fillin_word([], _, []).
+fillin_word([X|Xs], Word, SlotsWithWord) :-
+    (Word = X ->
+        SlotsWithWord = [Word|Xs]
+    ;   SlotsWithWord = [X|SlotsWithWord1],
+        fillin_word(Xs, Word, SlotsWithWord1)
+    ).
 
 puzzle_with_vars([], []).
 puzzle_with_vars([X|Xs], [RowWithVars|PuzzleWithVars]) :-
@@ -113,7 +137,6 @@ slots_from_row([], Acc, Slots) :-
     ;   Slots = [Acc]).
 slots_from_row([X|Xs], Acc, Slots) :-
     (X == '#' ->
-        write('Found a #'),
         Slots = [Acc|Slots1],
         Acc1 = []
     ;   append(Acc, [X], Acc1),

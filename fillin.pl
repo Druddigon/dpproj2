@@ -85,20 +85,20 @@ verify_solved(Slots, WordList) :-
 fillin_all_words(_, []).
 fillin_all_words([], _).
 fillin_all_words(Slots, WordList) :-
-    best_next_word(WordList, Slots, BestWord),
+    /*best_next_word(WordList, Slots, BestWord),
     exclude(\=(BestWord), Slots, MatchingSlots),
     member(Slot, MatchingSlots),
     BestWord = Slot,
     exclude(==(BestWord), WordList, RemainingWords),
     exclude(==(Slot), Slots, RemainingSlots),
-    fillin_all_words(RemainingSlots, RemainingWords).
-    /*best_next_slot(Slots, WordList, BestSlot),
+    fillin_all_words(RemainingSlots, RemainingWords).*/
+    best_next_slot(Slots, WordList, BestSlot),
     exclude(\=(BestSlot), WordList, MatchingSlots),
     member(Word, MatchingSlots),
     BestSlot = Word,
     exclude(==(Word), WordList, RemainingWords),
     exclude(==(BestSlot), Slots, RemainingSlots),
-    fillin_all_words(RemainingSlots, RemainingWords).*/
+    fillin_all_words(RemainingSlots, RemainingWords).
 
 best_next_word([], _, _).
 best_next_word([Word|Words], Slots, BestWord) :-
@@ -131,19 +131,18 @@ slots_matching_word(Word, [Slot|Slots], Acc, Count) :-
 % First slot is initial best slot
 best_next_slot([Slot|Slots], WordList, BestSlot) :-
     slot_matches(Slot, WordList, Count),
-    best_next_slot(Slots, WordList, Count, Slot),
-    BestSlot = Slot.
+    best_next_slot(Slots, WordList, Count, Slot, BestSlot).
 
-best_next_slot([], _, _, _).
-best_next_slot([Slot|Slots], WordList, LowestMatches, BestSlot) :-
+best_next_slot([], _, _, BestSlot, BestSlot).
+best_next_slot([Slot|Slots], WordList, LowestMatches, CurrentBestSlot, BestSlot) :-
     slot_matches(Slot, WordList, Count),
     (Count < LowestMatches ->
-        BestSlot1 = Slot,
+        CurrentBestSlot1 = Slot,
         LowestMatches1 = Count
-    ;   BestSlot1 = BestSlot,
+    ;   CurrentBestSlot1 = CurrentBestSlot,
         LowestMatches1 = LowestMatches
     ),
-    best_next_slot(Slots, WordList, LowestMatches1, BestSlot1).
+    best_next_slot(Slots, WordList, LowestMatches1, CurrentBestSlot1, BestSlot).
 
 
 slot_matches(Slot, WordList, Count) :-

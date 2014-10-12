@@ -69,12 +69,10 @@ valid_puzzle([Row|Rows]) :-
 % implementation.
 
 %%  doesn't work
-solve_puzzle(Puzzle0, WordList, Puzzle) :-
+solve_puzzle(Puzzle0, WordList, Puzzle0WithVars) :-
     puzzle_with_vars(Puzzle0, Puzzle0WithVars),
     slots_from_puzzle(Puzzle0WithVars, Slots),
-    fillin_all_words(Slots, WordList),
-    verify_solved(Slots, WordList),
-    Puzzle = Puzzle0WithVars.
+    fillin_all_words(Slots, WordList).
 
 %% verify_solved(Slots, WordList)
 %% should hold when every slot corresponds to a word in the WordList.
@@ -82,31 +80,53 @@ verify_solved([], []).
 verify_solved(Slots, WordList) :-
     msort(Slots, SortedSlots),
     msort(WordList, SortedWordList),
-    SortedSlots = SortedWordList.
+    SortedSlots == SortedWordList.
 
-fillin_all_words(Slots, []).
-fillin_all_words(Slots, [Word|Words]) :-
-    member(Slot, Slots),
-    Word = Slot,
-    fillin_all_words(Slots, Words).
+fillin_all_words(_, []).
+fillin_all_words([], _).
+fillin_all_words(Slots, WordList) :-
+    best_next_word(WordList, Slots, BestWord),
+    exclude(\=(BestWord), Slots, MatchingSlots),
+    member(Slot, MatchingSlots),
+    BestWord = Slot,
+    exclude(==(BestWord), WordList, RemainingWords),
+    exclude(==(Slot), Slots, RemainingSlots),
+    fillin_all_words(RemainingSlots, RemainingWords).
+    /*best_next_slot(Slots, WordList, BestSlot),
+    exclude(\=(BestSlot), WordList, MatchingSlots),
+    member(Word, MatchingSlots),
+    BestSlot = Word,
+    exclude(==(Word), WordList, RemainingWords),
+    exclude(==(BestSlot), Slots, RemainingSlots),
+    fillin_all_words(RemainingSlots, RemainingWords).*/
 
-%% Greedily place the word in the first possible slot
-fillin_word([], _, []).
-fillin_word([X|Xs], Word, SlotsWithWord) :-
-    (Word = X ->
-        SlotsWithWord = [Word|Xs]
-    ;   SlotsWithWord = [X|SlotsWithWord1],
-        fillin_word(Xs, Word, SlotsWithWord1)
-    ).
+best_next_word([], _, _).
+best_next_word([Word|Words], Slots, BestWord) :-
+    slots_matching_word(Word, Slots, Matches),
+    best_next_word(Words, Slots, Matches, Word, BestWord).
 
-find_matching_word(_, [], WordUsed).
-find_matching_word(Slot, [Word|Words], WordUsed) :-
-    (Word \= Slot ->
-        WordUsed1 = WordUsed
-    ;   WordUsed1 = Word
+best_next_word([], _, _, BestWord, BestWord).
+best_next_word([Word|Words], Slots, LowestMatches, CurrentBestWord, BestWord) :-
+    slots_matching_word(Word, Slots, Count),
+    (Count < LowestMatches ->
+        CurrentBestWord1 = Word,
+        LowestMatches1 = Count
+    ;   CurrentBestWord1 = CurrentBestWord,
+        LowestMatches1 = LowestMatches
     ),
-    find_matching_word(Slot, Words, WordUsed1).
+    best_next_word(Words, Slots, LowestMatches1, CurrentBestWord1, BestWord).
 
+
+slots_matching_word(Word, Slots, Matches) :-
+    slots_matching_word(Word, Slots, 0, Matches).
+
+slots_matching_word(_, [], Acc, Acc).
+slots_matching_word(Word, [Slot|Slots], Acc, Count) :-
+    (Word \= Slot ->
+        Acc1 is Acc
+    ;   Acc1 is Acc + 1
+    ), 
+    slots_matching_word(Word, Slots, Acc1, Count).
 
 % First slot is initial best slot
 best_next_slot([Slot|Slots], WordList, BestSlot) :-
@@ -114,15 +134,16 @@ best_next_slot([Slot|Slots], WordList, BestSlot) :-
     best_next_slot(Slots, WordList, Count, Slot),
     BestSlot = Slot.
 
-best_next_slot([], _, _, BestSlot).
+best_next_slot([], _, _, _).
 best_next_slot([Slot|Slots], WordList, LowestMatches, BestSlot) :-
     slot_matches(Slot, WordList, Count),
     (Count < LowestMatches ->
         BestSlot1 = Slot,
-        LowestMatches = Count
-    ;   BestSlot1 = BestSlot
+        LowestMatches1 = Count
+    ;   BestSlot1 = BestSlot,
+        LowestMatches1 = LowestMatches
     ),
-    best_next_slot(Slots, WordList, LowestMatches, BestSlot1).
+    best_next_slot(Slots, WordList, LowestMatches1, BestSlot1).
 
 
 slot_matches(Slot, WordList, Count) :-

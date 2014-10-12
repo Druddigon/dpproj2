@@ -73,6 +73,7 @@ solve_puzzle(Puzzle0, WordList, Puzzle) :-
     puzzle_with_vars(Puzzle0, Puzzle0WithVars),
     slots_from_puzzle(Puzzle0WithVars, Slots),
     fillin_all_words(Slots, WordList),
+    verify_solved(Slots, WordList),
     Puzzle = Puzzle0WithVars.
 
 %% verify_solved(Slots, WordList)
@@ -84,9 +85,10 @@ verify_solved(Slots, WordList) :-
     SortedSlots = SortedWordList.
 
 fillin_all_words(Slots, []).
-fillin_all_words(Slots, [X|Xs]) :-
-    fillin_word(Slots, X, SlotsWithWord),
-    fillin_all_words(SlotsWithWord, Xs).
+fillin_all_words(Slots, [Word|Words]) :-
+    member(Slot, Slots),
+    Word = Slot,
+    fillin_all_words(Slots, Words).
 
 %% Greedily place the word in the first possible slot
 fillin_word([], _, []).
@@ -96,6 +98,43 @@ fillin_word([X|Xs], Word, SlotsWithWord) :-
     ;   SlotsWithWord = [X|SlotsWithWord1],
         fillin_word(Xs, Word, SlotsWithWord1)
     ).
+
+find_matching_word(_, [], WordUsed).
+find_matching_word(Slot, [Word|Words], WordUsed) :-
+    (Word \= Slot ->
+        WordUsed1 = WordUsed
+    ;   WordUsed1 = Word
+    ),
+    find_matching_word(Slot, Words, WordUsed1).
+
+
+% First slot is initial best slot
+best_next_slot([Slot|Slots], WordList, BestSlot) :-
+    slot_matches(Slot, WordList, Count),
+    best_next_slot(Slots, WordList, Count, Slot),
+    BestSlot = Slot.
+
+best_next_slot([], _, _, BestSlot).
+best_next_slot([Slot|Slots], WordList, LowestMatches, BestSlot) :-
+    slot_matches(Slot, WordList, Count),
+    (Count < LowestMatches ->
+        BestSlot1 = Slot,
+        LowestMatches = Count
+    ;   BestSlot1 = BestSlot
+    ),
+    best_next_slot(Slots, WordList, LowestMatches, BestSlot1).
+
+
+slot_matches(Slot, WordList, Count) :-
+    slot_matches(Slot, WordList, 0, Count).
+
+slot_matches(_, [], Acc, Acc).
+slot_matches(Slot, [Word|Words], Acc, Count) :-
+    (Slot \= Word ->
+        Acc1 is Acc
+    ;   Acc1 is Acc + 1
+    ), slot_matches(Slot, Words, Acc1, Count).
+
 
 puzzle_with_vars([], []).
 puzzle_with_vars([X|Xs], [RowWithVars|PuzzleWithVars]) :-

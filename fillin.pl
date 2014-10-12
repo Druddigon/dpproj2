@@ -1,3 +1,21 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% File   : fillin.pl
+% Author : Maxim Lobanov - mlobanov (587697)
+% Date   : 13/10/14
+% Purpose: Program for Fillin Prolog Project (COMP30020 Declarative
+%          Programming, Semester 2 2014). Attempts to solve a fillin
+%          crossword puzzle. A fillin puzzle (or fill-it-in) is similar
+%          to a crossword puzzle. The player is given a list of all the 
+%          words to be placed into the puzzle but not told where they
+%          should go. The puzzle itself is a grid of square cells which
+%          may be empty, filled with a letter, or solid. An empty cell
+%          is able to be filled in with a letter and a solid cell may not
+%          be filled in. For more information, read the project specification
+%          (fillin.pdf).
+%          This file's main predicate is solve_puzzle/3 which takes
+%          a puzzle file and a word list and attempts to solve the puzzle.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 :- ensure_loaded(library(clpfd)).
 
 % You can use this code to get your started with your fillin puzzle solver.
@@ -63,35 +81,20 @@ valid_puzzle([Row|Rows]) :-
 % should be lists of lists of characters (single-character atoms), one
 % list per puzzle row.  WordList is also a list of lists of
 % characters, one list per word.
-%
-% This code is obviously wrong: it just gives back the unfilled puzzle
-% as result.  You'll need to replace this with a working
-% implementation.
 
-%%  doesn't work
 solve_puzzle(Puzzle0, WordList, Puzzle0WithVars) :-
     puzzle_with_vars(Puzzle0, Puzzle0WithVars),
     slots_from_puzzle(Puzzle0WithVars, Slots),
     fillin_all_words(Slots, WordList).
 
-%% verify_solved(Slots, WordList)
-%% should hold when every slot corresponds to a word in the WordList.
-verify_solved([], []).
-verify_solved(Slots, WordList) :-
-    msort(Slots, SortedSlots),
-    msort(WordList, SortedWordList),
-    SortedSlots == SortedWordList.
-
+% fillin_all_words(Slots, WordList)
+% should hold when all of the Slots are able to be filled in
+% by a word from WordList. Slots is a list of slots in the puzzle
+% where words can be placed. WordList is a list of the words
+% that are trying to be filled into the puzzle.
 fillin_all_words(_, []).
 fillin_all_words([], _).
 fillin_all_words(Slots, WordList) :-
-    /*best_next_word(WordList, Slots, BestWord),
-    exclude(\=(BestWord), Slots, MatchingSlots),
-    member(Slot, MatchingSlots),
-    BestWord = Slot,
-    exclude(==(BestWord), WordList, RemainingWords),
-    exclude(==(Slot), Slots, RemainingSlots),
-    fillin_all_words(RemainingSlots, RemainingWords).*/
     best_next_slot(Slots, WordList, BestSlot),
     exclude(\=(BestSlot), WordList, MatchingSlots),
     member(Word, MatchingSlots),
@@ -100,42 +103,20 @@ fillin_all_words(Slots, WordList) :-
     exclude(==(BestSlot), Slots, RemainingSlots),
     fillin_all_words(RemainingSlots, RemainingWords).
 
-best_next_word([], _, _).
-best_next_word([Word|Words], Slots, BestWord) :-
-    slots_matching_word(Word, Slots, Matches),
-    best_next_word(Words, Slots, Matches, Word, BestWord).
-
-best_next_word([], _, _, BestWord, BestWord).
-best_next_word([Word|Words], Slots, LowestMatches, CurrentBestWord, BestWord) :-
-    slots_matching_word(Word, Slots, Count),
-    (Count < LowestMatches ->
-        CurrentBestWord1 = Word,
-        LowestMatches1 = Count
-    ;   CurrentBestWord1 = CurrentBestWord,
-        LowestMatches1 = LowestMatches
-    ),
-    best_next_word(Words, Slots, LowestMatches1, CurrentBestWord1, BestWord).
-
-
-slots_matching_word(Word, Slots, Matches) :-
-    slots_matching_word(Word, Slots, 0, Matches).
-
-slots_matching_word(_, [], Acc, Acc).
-slots_matching_word(Word, [Slot|Slots], Acc, Count) :-
-    (Word \= Slot ->
-        Acc1 is Acc
-    ;   Acc1 is Acc + 1
-    ), 
-    slots_matching_word(Word, Slots, Acc1, Count).
-
-% First slot is initial best slot
+% best_next_slot(Slots, WordList, BestSlot)
+% should hold when BestSlot is the slot with the least
+% amount of matching words that can be used to fill it.
+% Slots is a list of slots in the puzzle where words may be
+% used to fill them in. 
+% WordList is a list of words attempting to be filled into
+% the slots of the puzzle.
 best_next_slot([Slot|Slots], WordList, BestSlot) :-
-    slot_matches(Slot, WordList, Count),
+    words_matching_slot(Slot, WordList, Count),
     best_next_slot(Slots, WordList, Count, Slot, BestSlot).
 
 best_next_slot([], _, _, BestSlot, BestSlot).
 best_next_slot([Slot|Slots], WordList, LowestMatches, CurrentBestSlot, BestSlot) :-
-    slot_matches(Slot, WordList, Count),
+    words_matching_slot(Slot, WordList, Count),
     (Count < LowestMatches ->
         CurrentBestSlot1 = Slot,
         LowestMatches1 = Count
@@ -145,45 +126,64 @@ best_next_slot([Slot|Slots], WordList, LowestMatches, CurrentBestSlot, BestSlot)
     best_next_slot(Slots, WordList, LowestMatches1, CurrentBestSlot1, BestSlot).
 
 
-slot_matches(Slot, WordList, Count) :-
-    slot_matches(Slot, WordList, 0, Count).
+% words_matching_slot(Slot, WordList, Count)
+% should hold when Count is the number of words
+% in WordList which can fit in Slot.
+% Slot is a single slot in the puzzle.
+% WordList is a list of words in the puzzle which
+% are attempting to be filled into the slots of the puzzle.
+words_matching_slot(Slot, WordList, Count) :-
+    words_matching_slot(Slot, WordList, 0, Count).
 
-slot_matches(_, [], Acc, Acc).
-slot_matches(Slot, [Word|Words], Acc, Count) :-
+words_matching_slot(_, [], Acc, Acc).
+words_matching_slot(Slot, [Word|Words], Acc, Count) :-
     (Slot \= Word ->
         Acc1 is Acc
     ;   Acc1 is Acc + 1
-    ), slot_matches(Slot, Words, Acc1, Count).
+    ), words_matching_slot(Slot, Words, Acc1, Count).
 
 
+% puzzle_with_vars(Puzzle, PuzzleWithVars)
+% should hold when PuzzleWithVars is identical to Puzzle
+% except all of the _ characters have been replaced with
+% logical variables.
 puzzle_with_vars([], []).
-puzzle_with_vars([X|Xs], [RowWithVars|PuzzleWithVars]) :-
-    row_to_vars(X, RowWithVars),
-    puzzle_with_vars(Xs, PuzzleWithVars).
+puzzle_with_vars([Row|Rows], [RowWithVars|PuzzleWithVars]) :-
+    row_to_vars(Row, RowWithVars),
+    puzzle_with_vars(Rows, PuzzleWithVars).
 
 % slots_from_puzzle(Puzzle, Slots)
-%% Puzzle is a list of lists of characters, one list per puzzle row.
-%% Slots is a list of slots in the puzzle (both horizontal and vertical).
+% should hold when Slots is a list of all the slots in both the
+% rows and columns of the Puzzle.
+% Puzzle is a list of lists of characters, one list per puzzle row.
 slots_from_puzzle(Puzzle, Slots) :-
     slots_from_all_rows(Puzzle, RowSlots),
-    prune_small_slots(RowSlots, PrunedRowSlots),
+    include(not_small, RowSlots, PrunedRowSlots),
     transpose(Puzzle, TransposedPuzzle),
     slots_from_all_rows(TransposedPuzzle, ColumnSlots),
-    prune_small_slots(ColumnSlots, PrunedColumnSlots),
+    include(not_small, ColumnSlots, PrunedColumnSlots),
     append(PrunedRowSlots, PrunedColumnSlots, Slots).
 
+
+% slots_from_all_rows(Rows, Slots)
+% should hold when Slots is a list of all the slots
+% in all of the Rows. Rows is a list of lists of characters,
+% one list per row in the puzzle.
 slots_from_all_rows([], []).
-slots_from_all_rows([X|Xs], Slots) :-
-    slots_from_row(X, RowSlots),
+slots_from_all_rows([Row|Rows], Slots) :-
+    slots_from_row(Row, RowSlots),
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Do I have to use append? Using it because using cons
+    %% resulted in [[[adasds]].[[asdasdas]]] rather than 
+    %% [[asdadasd],[adadadsa]] which is what I want.
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     append(RowSlots, Slots1, Slots),
-    slots_from_all_rows(Xs, Slots1).
+    slots_from_all_rows(Rows, Slots1).
 
-
-% slots_from_rows(Row, Acc, Slots)
-%% generate the slots for the Row, i.e. split on hashes
-%% should return list of slots
-%% e.g. [['#', X, '#'], [A,B,C], ['#', Z, '#']] returns [[A,B,C], [X,B,Z]]
-%% probably ignores slots of size 1
+% slots_from_rows(Row, Slots)
+% should hold when Slots contains a list of slots present in the Row.
+% i.e. Slots is the result of splitting the Row on hashes.
+% e.g. [['#', X, '#'], [A,B,C], ['#', Z, '#']] returns [[A,B,C], [X,B,Z]]
 slots_from_row(Row, Slots) :-
     slots_from_row(Row, [], Slots).
 
@@ -203,14 +203,11 @@ slots_from_row([X|Xs], Acc, Slots) :-
     ),
     slots_from_row(Xs, Acc1, Slots1).
 
-
+% not_small(List)
+% holds when the length of the list is greater than 1.
 not_small(List) :-
     length(List, Len),
     Len > 1.
-
-prune_small_slots(Slots, Pruned) :-
-    include(not_small, Slots, Pruned).
-
 
 % row_to_vars(Row, RowWithVars)
 % should hold when Row is a row of an unfilled puzzle.
@@ -227,11 +224,3 @@ row_to_vars([X|Xs], RowWithVars) :-
     ;   RowWithVars = [X|RowWithVars1]
     ),
     row_to_vars(Xs, RowWithVars1).
-
-/*filter(_, [], []).
-filter(P, [X|Xs], Filtered) :-
-    ( call(P,X) ->
-        Filtered = [X|Filtered1]
-    ;   Filtered = Filtered1
-    ),
-    filter(P, Xs, Filtered1).*/

@@ -13,7 +13,7 @@
 %          be filled in. For more information, read the project specification
 %          (fillin.pdf).
 %          This file's main predicate is solve_puzzle/3 which takes
-%          a puzzle file and a word list and attempts to solve the puzzle.
+%          a puzzle file and a word file and attempts to solve the puzzle.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 :- ensure_loaded(library(clpfd)).
@@ -75,16 +75,19 @@ valid_puzzle([Row|Rows]) :-
     maplist(same_length(Row), Rows).
 
 
-% solve_puzzle(Puzzle0, WordList, Puzzle)
-% should hold when Puzzle is a solved version of Puzzle0, with the
-% empty slots filled in with words from WordList.  Puzzle0 and Puzzle
-% should be lists of lists of characters (single-character atoms), one
+% solve_puzzle(Puzzle, WordList, PuzzleWithVars)
+% should hold when PuzzleWithVars is a solved version of Puzzle, with the
+% empty slots filled in with words from WordList. PuzzleWithVars initially
+% will be Puzzle with all underscores transformed into logical variables 
+% which will then be solved.
+% When solved, PuzzleWithVars and Puzzle should be lists of lists of 
+% characters (single-character atoms), one
 % list per puzzle row.  WordList is also a list of lists of
 % characters, one list per word.
 
-solve_puzzle(Puzzle0, WordList, Puzzle0WithVars) :-
-    puzzle_with_vars(Puzzle0, Puzzle0WithVars),
-    slots_from_puzzle(Puzzle0WithVars, Slots),
+solve_puzzle(Puzzle, WordList, PuzzleWithVars) :-
+    puzzle_with_vars(Puzzle, PuzzleWithVars),
+    slots_from_puzzle(PuzzleWithVars, Slots),
     fillin_all_words(Slots, WordList).
 
 % fillin_all_words(Slots, WordList)
@@ -92,6 +95,9 @@ solve_puzzle(Puzzle0, WordList, Puzzle0WithVars) :-
 % by a word from WordList. Slots is a list of slots in the puzzle
 % where words can be placed. WordList is a list of the words
 % that are trying to be filled into the puzzle.
+% It attempts to find the best slot to place a word into and then
+% non-deterministically chooses a word to be placed into that slot.
+% It repeats this until all slots are filled with words.
 fillin_all_words(_, []).
 fillin_all_words([], _).
 fillin_all_words(Slots, WordList) :-
@@ -115,7 +121,8 @@ best_next_slot([Slot|Slots], WordList, BestSlot) :-
     best_next_slot(Slots, WordList, Count, Slot, BestSlot).
 
 best_next_slot([], _, _, BestSlot, BestSlot).
-best_next_slot([Slot|Slots], WordList, LowestMatches, CurrentBestSlot, BestSlot) :-
+best_next_slot([Slot|Slots], WordList, LowestMatches, 
+                    CurrentBestSlot, BestSlot) :-
     words_matching_slot(Slot, WordList, Count),
     (Count < LowestMatches ->
         CurrentBestSlot1 = Slot,
@@ -123,15 +130,17 @@ best_next_slot([Slot|Slots], WordList, LowestMatches, CurrentBestSlot, BestSlot)
     ;   CurrentBestSlot1 = CurrentBestSlot,
         LowestMatches1 = LowestMatches
     ),
-    best_next_slot(Slots, WordList, LowestMatches1, CurrentBestSlot1, BestSlot).
+    best_next_slot(Slots, WordList, LowestMatches1, 
+        CurrentBestSlot1, BestSlot).
 
 
 % words_matching_slot(Slot, WordList, Count)
-% should hold when Count is the number of words
-% in WordList which can fit in Slot.
+% should hold when Count is the number of words in WordList which can 
+% fit in Slot.
 % Slot is a single slot in the puzzle.
 % WordList is a list of words in the puzzle which
 % are attempting to be filled into the slots of the puzzle.
+% Each of the Words in WordList is checked to see if it can fit in the Slot.
 words_matching_slot(Slot, WordList, Count) :-
     words_matching_slot(Slot, WordList, 0, Count).
 
@@ -142,15 +151,13 @@ words_matching_slot(Slot, [Word|Words], Acc, Count) :-
     ;   Acc1 is Acc + 1
     ), words_matching_slot(Slot, Words, Acc1, Count).
 
-
 % puzzle_with_vars(Puzzle, PuzzleWithVars)
 % should hold when PuzzleWithVars is identical to Puzzle
 % except all of the _ characters have been replaced with
 % logical variables.
 puzzle_with_vars([], []).
-puzzle_with_vars([Row|Rows], [RowWithVars|PuzzleWithVars]) :-
-    row_to_vars(Row, RowWithVars),
-    puzzle_with_vars(Rows, PuzzleWithVars).
+puzzle_with_vars(Rows, PuzzleWithVars) :-
+    maplist(row_to_vars, Rows, PuzzleWithVars).
 
 % slots_from_puzzle(Puzzle, Slots)
 % should hold when Slots is a list of all the slots in both the
@@ -164,6 +171,11 @@ slots_from_puzzle(Puzzle, Slots) :-
     include(not_small, ColumnSlots, PrunedColumnSlots),
     append(PrunedRowSlots, PrunedColumnSlots, Slots).
 
+% not_small(List)
+% holds when the length of the list is greater than 1.
+not_small(List) :-
+    length(List, Len),
+    Len > 1.
 
 % slots_from_all_rows(Rows, Slots)
 % should hold when Slots is a list of all the slots
@@ -172,28 +184,22 @@ slots_from_puzzle(Puzzle, Slots) :-
 slots_from_all_rows([], []).
 slots_from_all_rows([Row|Rows], Slots) :-
     slots_from_row(Row, RowSlots),
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% Do I have to use append? Using it because using cons
-    %% resulted in [[[adasds]].[[asdasdas]]] rather than 
-    %% [[asdadasd],[adadadsa]] which is what I want.
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     append(RowSlots, Slots1, Slots),
     slots_from_all_rows(Rows, Slots1).
 
 % slots_from_rows(Row, Slots)
 % should hold when Slots contains a list of slots present in the Row.
 % i.e. Slots is the result of splitting the Row on hashes.
-% e.g. [['#', X, '#'], [A,B,C], ['#', Z, '#']] returns [[A,B,C], [X,B,Z]]
 slots_from_row(Row, Slots) :-
     slots_from_row(Row, [], Slots).
-
-% any better ways to do this? have to make final accumulator into list because
-% there isn't another # to signal the end of the slot at the end of the row
-slots_from_row([], Acc, Slots) :-
-    length(Acc, Len),
-    (Len < 1 ->
-        Slots = []
-    ;   Slots = [Acc]).
+slots_from_row([], [], []).
+% There is no hash at the end of a row to signal the end of a slot, so if
+% the accumulator is a non empty list, put it inside a list.
+slots_from_row([], Acc, [Acc]) :-
+    Acc \= [].
+% If you encounter a hash, add the current accumulator to the list of slots 
+% and reset the accumulator to empty list. Otherwise, keep adding to the
+% accumulator which represents a slot.
 slots_from_row([X|Xs], Acc, Slots) :-
     (X == '#' ->
         Slots = [Acc|Slots1],
@@ -203,24 +209,16 @@ slots_from_row([X|Xs], Acc, Slots) :-
     ),
     slots_from_row(Xs, Acc1, Slots1).
 
-% not_small(List)
-% holds when the length of the list is greater than 1.
-not_small(List) :-
-    length(List, Len),
-    Len > 1.
-
 % row_to_vars(Row, RowWithVars)
 % should hold when Row is a row of an unfilled puzzle.
 % RowWithVars should be the same as Row but
 % should change all the _ in the puzzle to logical variables.
-
-% Why do I get X = [a, b, c, #, d, e|c] if I have _X as second arg in this?
-% test case is row_to_vars(['_','_','_',#,'_','_'], X).
-%% Can probably redo this using maplist and writing a predicate? to replace '_' with vars
 row_to_vars([], []).
-row_to_vars([X|Xs], RowWithVars) :-
-    (X = '_' ->
-        RowWithVars = [_A|RowWithVars1]
-    ;   RowWithVars = [X|RowWithVars1]
-    ),
-    row_to_vars(Xs, RowWithVars1).
+row_to_vars(Row, RowWithVars) :-
+    maplist(underscore_to_var, Row, RowWithVars).
+
+% underscore_to_var(Char, Var)
+% should hold when Var is a logical variable if Char is an underscore
+% and Var is equal to Char if Char is anything else.
+underscore_to_var('_', _).
+underscore_to_var(Char, Char) :- Char \= '_'.

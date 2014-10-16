@@ -10,12 +10,14 @@
 %          should go. The puzzle itself is a grid of square cells which
 %          may be empty, filled with a letter, or solid. An empty cell
 %          is able to be filled in with a letter and a solid cell may not
-%          be filled in. For more information, read the project specification
-%          (fillin.pdf).
+%          be filled in. For more information, read the project 
+%          specification (fillin.pdf).
 %          This file's main predicate is solve_puzzle/3 which takes
 %          a puzzle file and a word file and attempts to solve the puzzle.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% SWI Prolog autoloads wrong transpose/2 predicate by default, so ensure this
+% library is loaded to use the correct transpose/2 predicate.
 :- ensure_loaded(library(clpfd)).
 
 % You can use this code to get your started with your fillin puzzle solver.
@@ -77,13 +79,15 @@ valid_puzzle([Row|Rows]) :-
 
 % solve_puzzle(Puzzle, WordList, PuzzleWithVars)
 % should hold when PuzzleWithVars is a solved version of Puzzle, with the
-% empty slots filled in with words from WordList. PuzzleWithVars initially
-% will be Puzzle with all underscores transformed into logical variables 
-% which will then be solved.
-% When solved, PuzzleWithVars and Puzzle should be lists of lists of 
-% characters (single-character atoms), one
-% list per puzzle row.  WordList is also a list of lists of
+% empty slots filled in with words from WordList. 
+% Puzzle should be a list of lists of characters (single-character atoms), 
+% one list per puzzle row.  WordList is also a list of lists of
 % characters, one list per word.
+% PuzzleWithVars initially will be Puzzle with all underscores 
+% transformed into logical variables which will then be solved.
+% When solved, PuzzleWithVars should be identical to puzzle except with 
+% all underscore characters replaced with their correct letters to from
+% a solved puzzle.
 
 solve_puzzle(Puzzle, WordList, PuzzleWithVars) :-
     puzzle_with_vars(Puzzle, PuzzleWithVars),
@@ -165,15 +169,15 @@ puzzle_with_vars(Rows, PuzzleWithVars) :-
 % Puzzle is a list of lists of characters, one list per puzzle row.
 slots_from_puzzle(Puzzle, Slots) :-
     slots_from_all_rows(Puzzle, RowSlots),
-    include(not_small, RowSlots, PrunedRowSlots),
+    include(length_greater_than_one, RowSlots, PrunedRowSlots),
     transpose(Puzzle, TransposedPuzzle),
     slots_from_all_rows(TransposedPuzzle, ColumnSlots),
-    include(not_small, ColumnSlots, PrunedColumnSlots),
+    include(length_greater_than_one, ColumnSlots, PrunedColumnSlots),
     append(PrunedRowSlots, PrunedColumnSlots, Slots).
 
-% not_small(List)
-% holds when the length of the list is greater than 1.
-not_small(List) :-
+% length_greater_than_one(List)
+% holds when the length of List is greater than 1.
+length_greater_than_one(List) :-
     length(List, Len),
     Len > 1.
 
@@ -215,10 +219,10 @@ slots_from_row([X|Xs], Acc, Slots) :-
 % should change all the _ in the puzzle to logical variables.
 row_to_vars([], []).
 row_to_vars(Row, RowWithVars) :-
-    maplist(underscore_to_var, Row, RowWithVars).
+    maplist(replace_underscore_with_var, Row, RowWithVars).
 
-% underscore_to_var(Char, Var)
+% replace_underscore_with_var(Char, Var)
 % should hold when Var is a logical variable if Char is an underscore
 % and Var is equal to Char if Char is anything else.
-underscore_to_var('_', _).
-underscore_to_var(Char, Char) :- Char \= '_'.
+replace_underscore_with_var('_', _).
+replace_underscore_with_var(Char, Char) :- Char \= '_'.
